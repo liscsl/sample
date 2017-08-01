@@ -1,0 +1,13 @@
+jar {
+    baseName = project.name
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies {
+	compile('org.springframework.boot:spring-boot-starter-batch')
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}

@@ -1,0 +1,148 @@
+buildscript {
+    ext {
+        springBootVersion = '1.3.8.RELEASE'
+    }
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+    }
+}
+plugins {
+    //id 'org.springframework.boot' version '1.4.3.RELEASE'
+    id 'com.jfrog.artifactory' version '4.4.9'
+}
+
+artifactoryPublish.enabled = false
+
+// サブプロジェクト共通( 全プロジェクト共通：allprojects)
+subprojects {
+    group 'isid'
+    version '1.0.0-SNAPSHOT'
+
+    apply plugin: 'java'
+    apply plugin: 'groovy'
+    apply plugin: 'eclipse'
+    apply plugin: 'spring-boot'
+    //apply plugin: 'org.springframework.boot'
+    apply plugin: 'maven-publish'
+    apply plugin: 'com.jfrog.artifactory'
+
+    apply plugin: 'checkstyle'
+    apply plugin: 'findbugs'
+    apply plugin: 'jacoco'
+
+    findMainClass.enabled = false
+    bootRepackage.enabled = true
+
+    // 文字コード
+    [compileJava, compileTestJava, javadoc]*.options*.encoding='UTF-8'
+    
+    // コンパイル時の設定
+    processResources.destinationDir = compileJava.destinationDir
+    compileJava.dependsOn processResources
+    
+    // コンパイルバージョン
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+
+    // CheckStyle(Googleのチェックスタイルベース)
+    checkstyle {
+        configFile = file("${projectDir}/etc/checkstyle/isid_checks.xml")
+        toolVersion = '7.5'
+        sourceSets = [project.sourceSets.main]
+    }
+
+    // FindBugs
+    findbugs {
+        toolVersion = '3.0.1'
+        sourceSets = [project.sourceSets.main]
+        ignoreFailures = true
+        effort = "max"
+        excludeFilter = file("${projectDir}/etc/findbugs/findbugs-exclude.xml")
+    }
+    
+    // FindBugsレポート
+    tasks.withType(FindBugs) {
+        reports {
+            xml.enabled = false
+            html.enabled = true
+        }
+    }
+
+    // Jacocoカバレッジ
+    jacoco {
+        toolVersion = "0.7.+"
+    }
+    
+    // 依存関係
+    dependencies {
+        // spring-boot-devtools は開発時のみ 本番リリース時には削除する
+        runtime('org.springframework.boot:spring-boot-devtools')
+
+        compile('org.apache.commons:commons-lang3:3.1')
+        
+        // プロジェクト共通依存関係
+        //compile('org.springframework.boot:spring-boot-starter-security') // 今後の課題(APP Serverにはまだ設定していない)
+        compile("org.codehaus.groovy:groovy-all:2.4.10")
+
+        /* テスト */
+        testCompile('org.springframework.boot:spring-boot-starter-test')
+        testCompile('org.spockframework:spock-core:1.1-groovy-2.4-rc-3')
+        testCompile('org.spockframework:spock-spring:1.1-groovy-2.4-rc-3')
+
+        // フレームワーク
+        //compile fileTree(dir: 'next-framework/build/libs', include: '*.jar')
+        //runtime files('next-framework/build/libs/a.jar', 'build/libs/b.jar')
+    }
+
+    afterEvaluate {
+        if (project.plugins.hasPlugin('java')) {
+            dependencies {
+                compileOnly ('org.projectlombok:lombok:1.16.16')
+            }
+        }
+
+        if (project.plugins.hasPlugin('org.springframework.boot')) {
+            dependencyManagement {
+                imports {
+                    mavenBom 'org.springframework.cloud:spring-cloud-dependencies:Camden.SR4'
+                }
+            }
+            dependencies {
+                runtime 'org.springframework.boot:spring-boot-devtools'
+            }
+        }
+    }
+
+    // Javaコンパイル
+    tasks.withType(JavaCompile) {
+        sourceCompatibility = '1.8'
+        targetCompatibility = '1.8'
+        it.options.encoding = 'UTF-8'
+    }
+
+    // Groovyコンパイル
+    tasks.withType(GroovyCompile) {
+        it.groovyOptions.encoding = 'UTF-8'
+    }
+
+    // Eclipse
+    eclipse {
+        classpath {
+            containers.remove('org.eclipse.jdt.launching.JRE_CONTAINER')
+            containers 'org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8'
+        }
+    }
+
+    // Gradle Wrapper
+    task wrapper(type: Wrapper) {
+        gradleVersion = '2.13'
+    }
+}
